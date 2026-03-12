@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class ClientConfig {
 
     @Bean
-    WebClient webClient(ClientProperties clientProperties, WebClient.Builder webClientBuilder) {
-        return webClientBuilder.baseUrl(clientProperties.catalogServiceUrl().toString()).build();
+    WebClient webClient(ClientProperties clientProperties) {
+        return WebClient.builder().baseUrl(clientProperties.catalogServiceUrl().toString()).build();
     }
 }
