@@ -25,7 +25,7 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
-    public Mono<Order> submit(String isbn, int qty) {
+    public Mono<Order> submitOrder(String isbn, int qty) {
         return bookClient.getBookByIsbn(isbn)
                 .map(book -> buildAcceptedOrder(book, qty))
                 .defaultIfEmpty(buildRejectedOrder(isbn, qty))
