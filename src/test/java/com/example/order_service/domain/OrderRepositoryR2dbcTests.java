@@ -1,9 +1,12 @@
 package com.example.order_service.domain;
 
+import java.util.Objects;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -11,7 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import com.example.order_service.persistence.DataConfig;
+import com.example.order_service.config.DataConfig;
 import com.example.order_service.service.OrderService;
 
 import reactor.test.StepVerifier;
@@ -47,6 +50,24 @@ public class OrderRepositoryR2dbcTests {
         var rejectedOrder = OrderService.buildRejectedOrder("1234567890", 3);
         StepVerifier.create(orderRepository.save(rejectedOrder))
                 .expectNextMatches(order -> order.status().equals(OrderStatus.REJECTED))
+                .verifyComplete();
+    }
+
+    @Test
+    void whenCreateOrderNotAuthenticatedThenNoAuditMetadata() {
+        var rejectedOrder = OrderService.buildRejectedOrder("1234567890", 3);
+        StepVerifier.create(orderRepository.save(rejectedOrder))
+                .expectNextMatches(order -> Objects.isNull(order.createdBy()) && Objects.isNull(order.lastModifiedBy()))
+                .verifyComplete();
+    }
+
+    @Test
+    @WithMockUser("melinda")
+    void whenCreateOrderAuthenticatedThenAuditMetadata() {
+        var rejectedOrder = OrderService.buildRejectedOrder("1234567890", 3);
+        StepVerifier.create(orderRepository.save(rejectedOrder))
+                .expectNextMatches(
+                        order -> order.createdBy().equals("melinda") && order.lastModifiedBy().equals("melinda"))
                 .verifyComplete();
     }
 }

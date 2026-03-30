@@ -8,6 +8,8 @@ spring:
   cloud:
     config:
       uri: http://localhost:8888
+      username: user
+      password: password
       request-connect-timeout: 2000
       request-read-timeout: 5000
       fail-fast: false
@@ -16,6 +18,34 @@ spring:
         initial-interval: 1000
         max-interval: 2000
         multiplier: 1.1
+    function:
+      definition: dispatchOrder
+    stream:
+      source: acceptOrder
+      bindings:
+        dispatchOrder-in-0:
+          destination: order-dispatched
+          group: ${spring.application.name}
+        acceptOrder-out-0:
+          destination: order-accepted
+      rabbit:
+        bindings:
+          acceptedOrder-out-0:
+            producer:
+              transacted: true
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: user
+    password: password
+    connection-timeout: 5s
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_URL:http://localhost:8080}/realms/PolarBookshop
 
   r2dbc:
     username: user

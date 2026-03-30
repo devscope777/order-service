@@ -1,12 +1,17 @@
 package com.example.order_service.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.order_service.book.Book;
 import com.example.order_service.book.BookClient;
 import com.example.order_service.domain.Order;
 import com.example.order_service.domain.OrderRepository;
 import com.example.order_service.domain.OrderStatus;
+import com.example.order_service.event.OrderAcceptedMessage;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -15,21 +20,26 @@ import reactor.core.publisher.Mono;
 public class OrderService {
     private final BookClient bookClient;
     private final OrderRepository orderRepository;
+    private final StreamBridge streamBridge;
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    public OrderService(BookClient bookClient, OrderRepository orderRepository) {
+    public OrderService(BookClient bookClient, OrderRepository orderRepository, StreamBridge streamBridge) {
         this.bookClient = bookClient;
         this.orderRepository = orderRepository;
+        this.streamBridge = streamBridge;
     }
 
-    public Flux<Order> getAllOrders() {
-        return orderRepository.findAll();
+    public Flux<Order> getAllOrders(String userId) {
+        return orderRepository.findAllByCreatedBy(userId);
     }
 
+    @Transactional
     public Mono<Order> submitOrder(String isbn, int qty) {
         return bookClient.getBookByIsbn(isbn)
                 .map(book -> buildAcceptedOrder(book, qty))
                 .defaultIfEmpty(buildRejectedOrder(isbn, qty))
-                .flatMap(orderRepository::save);
+                .flatMap(orderRepository::save)
+                .doOnNext(this::publishOrderAcceptedEvent);
     }
 
     public static Order buildAcceptedOrder(Book book, int quantity) {
@@ -39,6 +49,34 @@ public class OrderService {
 
     public static Order buildRejectedOrder(String bookIsbn, int quantity) {
         return Order.build(bookIsbn, null, null, quantity, OrderStatus.REJECTED);
+    }
+
+    public void updateOrderStatus(Long orderId, OrderStatus status) {
+        orderRepository.findById(orderId)
+                .map(existingOrder -> new Order(
+                        existingOrder.id(),
+                        existingOrder.bookIsbn(),
+                        existingOrder.bookName(),
+                        existingOrder.bookPrice(),
+                        existingOrder.quantity(),
+                        status,
+                        existingOrder.createdDate(),
+                        existingOrder.lastModifiedDate(),
+                        existingOrder.createdBy(),
+                        existingOrder.lastModifiedBy(),
+                        existingOrder.version()))
+                .flatMap(orderRepository::save)
+                .subscribe();
+    }
+
+    public void publishOrderAcceptedEvent(Order order) {
+        if (!order.status().equals(OrderStatus.ACCEPTED))
+            return;
+
+        OrderAcceptedMessage orderAcceptedMessage = new OrderAcceptedMessage(order.id());
+        log.info("Sending order accepted event with id: {}", order.id());
+        var result = streamBridge.send("order-accepted", orderAcceptedMessage);
+        log.info("Result of sending data for order with id {}: {}", order.id(), result);
     }
 
 }
