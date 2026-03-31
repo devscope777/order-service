@@ -18,7 +18,7 @@ public class SecurityConfig {
         http
                 .authorizeExchange(exchange -> exchange.anyExchange().authenticated())
                 .oauth2ResourceServer(resource -> resource.jwt(Customizer.withDefaults()))
-                .csrf(csrf -> csrf.disable())
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .requestCache(requestCacheSpec -> requestCacheSpec.requestCache(NoOpServerRequestCache.getInstance()));
         return http.build();
     }
