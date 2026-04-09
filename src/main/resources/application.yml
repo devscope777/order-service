@@ -70,12 +70,22 @@ polar:
   catalog-service-url: "http://localhost:9001"
 
 management:
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
         include:
           - health
           - prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 logging:
   level:
     org:

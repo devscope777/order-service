@@ -1,5 +1,6 @@
 package com.example.order_service.config;
 
+import org.springframework.boot.security.autoconfigure.actuate.web.reactive.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -17,7 +18,8 @@ public class SecurityConfig {
     SecurityWebFilterChain webFilter(ServerHttpSecurity http) {
         http
                 .authorizeExchange(
-                        exchange -> exchange.pathMatchers("/actuator/**").permitAll().anyExchange().authenticated())
+                        exchange -> exchange.matchers(EndpointRequest.toAnyEndpoint()).permitAll().anyExchange()
+                                .authenticated())
                 .oauth2ResourceServer(resource -> resource.jwt(Customizer.withDefaults()))
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .requestCache(requestCacheSpec -> requestCacheSpec.requestCache(NoOpServerRequestCache.getInstance()));
